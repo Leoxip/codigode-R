@@ -1,0 +1,66 @@
+# Cargar las librerías necesarias
+library(readr)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+# Leer los datos desde un archivo CSV
+bigcity <- read_csv("C:/Users/carlo/Downloads/Tarea Analisis Multivariado/bigcity.csv", show_col_types = FALSE)
+
+# Revisar estructura y posibles valores faltantes
+str(bigcity)
+summary(bigcity)
+
+# Visualización inicial para detectar outliers o datos atípicos
+print("Gráfico de puntos para detección de outliers:")
+ggplot(bigcity, aes(x = u, y = x)) +
+  geom_point() +
+  labs(title = "Detección de Outliers en poblaciones de 1920 vs 1930")
+
+# Eliminación de filas con valores atípicos si es necesario (esto es solo un ejemplo)
+# bigcity <- bigcity %>% filter(u < 400 & x < 600)
+
+# Análisis descriptivo detallado
+bigcity %>%
+  summarise(across(c(u, x), list(min = min, q1 = quantile, median = median, mean = mean, q3 = quantile, max = max, skewness = ~skewness(.), kurtosis = ~kurtosis(.))))
+
+# Histogramas con densidad para examinar la distribución y sesgo
+bigcity %>%
+  pivot_longer(cols = c(u, x), names_to = "Year", values_to = "Population") %>%
+  ggplot(aes(x = Population, fill = Year)) +
+  geom_histogram(aes(y = ..density..), binwidth = 20, alpha = 0.6, position = "identity") +
+  geom_density(alpha = .5) +
+  facet_wrap(~Year, scales = "free") +
+  labs(title = "Distribución de poblaciones con densidad")
+
+# Diagrama de dispersión mejorado con modelo lineal y línea de identidad
+ggplot(bigcity, aes(x = u, y = x)) +
+  geom_point(color = "blue") +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "grey") +
+  labs(title = "Relación entre población en 1920 y 1930 con ajuste lineal",
+       x = "Población en 1920", y = "Población en 1930")
+
+# Cálculo e interpretación de la correlación
+correlation <- cor(bigcity$u, bigcity$x)
+print(paste("Correlación entre la población en 1920 y 1930:", round(correlation, 2)))
+
+# Filtrar y visualizar ciudades con cambios inusuales en la población entre 1920 y 1930
+# Calcular la diferencia en la población entre 1930 y 1920
+bigcity <- bigcity %>%
+  mutate(difference = x - u)
+
+# Definir un umbral para identificar cambios inusuales
+umbral <- quantile(bigcity$difference, probs = c(0.05, 0.95))  # Por ejemplo, utilizando percentiles 5 y 95
+
+# Crear un histograma de las diferencias en la población para todas las ciudades
+ggplot(bigcity, aes(x = difference)) +
+  geom_histogram(binwidth = 20, fill = "skyblue", color = "black") +
+  labs(title = "Diferencia en población entre 1920 y 1930 para todas las ciudades",
+       x = "Diferencia en población (1930 - 1920)",
+       y = "Frecuencia") +
+  theme_minimal() +
+  # Resaltar ciudades con cambios inusuales
+  geom_vline(xintercept = umbral, linetype = "dashed", color = "red") +
+  annotate("text", x = umbral[1] - 30, y = 5, label = "Umbral inferior", color = "red") +
+  annotate("text", x = umbral[2] + 30, y = 5, label = "Umbral superior", color = "red")
